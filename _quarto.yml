@@ -5,9 +5,6 @@ manuscript:
   article: index.qmd
 
 format:
-
-
-
   revealjs:
     theme: solarized
     transition: fade
@@ -18,7 +15,7 @@ format:
     section-numbering: 1.1.a
     columns: 2
 
-  html: default
+#  html: default
 
 execute:
     message: false
