@@ -1,0 +1,30 @@
+project:
+  type: manuscript
+
+manuscript:
+  article: index.qmd
+
+format:
+
+
+
+  revealjs:
+    theme: solarized
+    transition: fade
+    slide-number: true
+
+  typst:
+    toc: true
+    section-numbering: 1.1.a
+    columns: 2
+
+  html: default
+
+execute:
+    message: false
+    echo: true
+    output: false
+    freeze: auto
+
+engine: julia
+
