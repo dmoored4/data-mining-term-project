@@ -55,7 +55,7 @@ These were combined and passed to a set of DER models to generate a synthetic da
 
 $$
 \begin{split}
-\arg\min_{\bf{x} \in \mathbb{R}^{6T}} & \bf{c}^\top \bf{p} \\
-s.t.\ & \bf{G} \bf{p} \le \bf{x}
+\arg\min_{{x} \in \mathbb{R}^{6T}} & {c}^\top {p} \\
+s.t.\ & {G} {p} \le {x}
 \end{split}
 $$ {#eq-vb-model}
