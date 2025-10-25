@@ -5,17 +5,18 @@ manuscript:
   article: index.qmd
 
 format:
-  revealjs:
-    theme: solarized
-    transition: fade
-    slide-number: true
+  html: default
+  # revealjs:
+  #   theme: solarized
+  #   transition: fade
+  #   slide-number: true
 
   typst:
     toc: true
     section-numbering: 1.1.a
     columns: 2
 
-#  html: default
+
 
 execute:
     message: false
