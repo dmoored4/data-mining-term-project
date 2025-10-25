@@ -6,10 +6,13 @@ manuscript:
 
 format:
   html: default
+  
   revealjs:
     theme: solarized
     transition: fade
     slide-number: true
+    output-file: slides.html
+    footer: "[Back to Page](https://dmoored4.github.io/data-mining-term-project/)"
 
   typst:
     toc: true

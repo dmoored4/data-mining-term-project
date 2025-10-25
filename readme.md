@@ -1,1 +1,1 @@
-https://dmoored4.github.io/data-mining-term-project/index.pdf
+https://dmoored4.github.io/data-mining-term-project/
