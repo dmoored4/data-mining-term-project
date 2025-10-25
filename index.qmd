@@ -23,6 +23,16 @@ abstract: We use some kind of clustering to improve the model selection for the 
 
 ---
 
+```{julia}
+#| label: test
+#| echo: true
+#| output: true
+
+f(x) = x^2 + 5
+
+f(25)
+```
+
 # Background
 
 Distributed Energy Resources (DERs) deployment is growing in their individual capacity and proliferation at both grid scale and house-level systems. While the benefit of the grid-scale elements are already being realized by inclusion in the energy grid operational planning, the house-level possess untapped potential flexibility.  Some house-level systems include electric vehicles (EVs), battery storage (BS), roof top photovoltaic cells (PV), and thermostatically-controlled loads (TCLs). For the most part, these DERs respond only to the flat, retail electricity rate or in some select areas, a simple time-of-use (TOU) tarriff system. This is a market shortfall because the DERs could exhibit price-responsive behavior if they participated in the wholesale electricty market. They could be incentivized to shift loads off, or inject power during, peak-price times. This would reduce reliance on peaker-plants which are known to be the most costly, dirtiest, and associated with negative public-health outcomes. The benefits can be highly nonlinear as the time of day that power is produced or consumed could mean that the usage is effecting the baseload (negligible impact) or maybe the annual-peak load (substantial impact), or something in between.
