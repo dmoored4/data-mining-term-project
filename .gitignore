@@ -2,3 +2,4 @@
 **/*.quarto_ipynb
 _manuscript/
 site_libs/
+_freeze/
