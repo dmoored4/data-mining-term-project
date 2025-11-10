@@ -1,0 +1,177 @@
+---
+title: Term Project Proposal
+subtitle: 16:540:94:01, Adv Topics in I.E. - Data Mining I
+
+date: 2025-11-15
+date-format: iso
+lang: en-US
+
+author:
+  - name: Daniel Moore
+    email: daniel.l.moore@rutgers.edu
+    roles: writing, research
+    corresponding: true
+    affiliation: 
+      - name: Rutgers University
+        city: Piscataway
+        state: NJ
+        url: www.rutgers.edu
+
+abstract: We use a Progressive Hedging Data Driven Inverse Optimization scheme to parameterize a battery so that it's price responsive-behavior approximates that of an aggregated set of DERs. The progressive hedging requires us to select historical observations which will be used ot develop the consensus. We currently use K-Means clustering based on the days' temperature profiles to group the historical obsevations. I want to investigate more sophisticated ways which would select days which will create a consensus which better approximates the target day.
+
+execute:
+    message: false
+    echo: true
+    output: false
+    freeze: auto
+
+engine: julia
+---
+
+# Background {.smaller}
+
+Distributed Energy Resources (DERs) deployment is growing in their individual capacity and proliferation at both grid scale and consumer-level systems. While the benefit of the grid-scale elements are already being realized by inclusion in the energy grid operational planning, the consumer-level possess untapped potential flexibility. Some consumer-level systems include electric vehicles (EVs), battery storage (BS), roof top photovoltaic cells (PV), and thermostatically-controlled loads (TCLs). For the most part, these DERs respond only to the flat, retail electricity rate or in some select areas, a simple time-of-use (TOU) tariff system. This is a market shortfall because the DERs could exhibit price-responsive behavior if they participated in the wholesale electricity market. They could be incentivized to shift loads off, or inject power during, peak-price times. This would reduce reliance on peaker-plants which are known to be the most costly, dirtiest, and associated with negative public-health outcomes. The benefits can be highly nonlinear as the time of day that power is produced or consumed could mean that the usage is effecting the base load (negligible impact) or maybe the annual-peak load (substantial impact), or something in between.
+
+# DER Aggregation with Virtual Batteries {.smaller}
+
+While the potential net flexibility of the DERs could have a substantial impact, they are too numerous and individually insignificant for the System Operator (SO) to include in their planning and dispatch optimization problems. This is exacerbated by the fact that their feasible dispatch region is typically non-convex. A common solution is for a DER Aggregator (DERA) to represent a portfolio of DERs to the SO as a virtual battery. This aggregates the non-convex feasible dispatch regions with relatively insignificant flexibility into a linear model shown in @eq-virtual-battery-basic that can be directly incorporated into the SO's optimization problem. This convex approximation is acceptable because aggregating the individual, non-convex sets will lead to a set that approaches convexity as the number of aggregated assets increases. Under this scheme, the DERA must carefully design the parameters of the virtual battery model which are the time-dependent power, state-of-charge, and ramping bounds so that it closely matches the true feasible region of the aggregate. This is not straightforward. It is impractical to aggregate the true feasible region from the individual DERs because amassing and maintaining up-to-date information would be a massive clerical burden. Even if this was practical to obtain, the DERA would need to calculate the convex-hull of this non-convex set which again brings us to computational intractability.
+
+## Virtual Battery Model {.smaller}
+
+$$
+\mathbf{p^\ast} (\mathbf{c}) \in \mathbb{R}^T = \arg\min_{\mathbf{p}} (\mathbf{c}^\top \mathbf{p})
+$$ {#eq-virtual-battery-basic}
+
+*subject to*
+
+$$
+\text{(Power Limitation) } \underline{p}_t \le p_t \le \overline{p}_t, \forall t \in \mathcal{T}
+$$
+
+$$
+\text{(State of Charge) } e_t = e_{t-1} + p_t, \forall t \in \mathcal{T} \setminus 1
+$$
+
+$$
+\text{(SoC Limits) } \underline{e}_t \le e_t \le \overline{e}_t, \forall t \in \mathcal{T}
+$$
+
+$$
+\text{(Ramping) } r_t = p_t - p_{t-1}, \forall t \in \mathcal{T} \setminus 1
+$$
+
+$$
+\text{(Ramping Limits) } \underline{r}_t \le r_t \le \overline{r}_t, \forall t \in \mathcal{T}
+$$
+
+where $\mathbf{c}$ is the cost vector and $\mathbf{p}$ is the power usage vector.
+
+## Constraint Rewrite
+
+Because all the constraints are linear and depend only on $p$, they can be conveniently represented them as:
+
+$$
+\mathbf{G} \mathbf{p} \le \mathbf{x}
+$$
+
+Where $\mathbf{G}$ holds the time-coupled structure of the battery and $\mathbf{x}$ holds the $rhs$ consisting of $\overline{\mathbf{p}}, \underline{\mathbf{p}}, \overline{\mathbf{e}}, \underline{\mathbf{e}}, \overline{\mathbf{r}}, \underline{\mathbf{r}}$.
+
+# Inverse Optimization {.smaller}
+
+A strong alternative is to infer the parameters from past observations of price-responsive behavior. Assuming that this data can be obtained by observing the DERs' aggregated response for some period of time, we use Data-Driven Inverse Optimization (DDIO) to infer the parameters of a virtual battery model which would lead to the same decisions as the aggregated power usage. The IO formulation is a bilevel program where we require the sub-problem is optimal by using Karush-Kuhn-Tucker optimality conditions as constraints as shown in @eq-general-io. This requires us to enforce complementary slackness where either the slack variable, $s_i$ and dual multiplier, $\lambda_i$ are $\ge 0$ and only one can have value $> 0$ ($s_i \lambda_i = 0$). This is expressed as $s_i \perp \lambda_i \ge 0$. To avoid bilinear terms, we use Special Order Set Type I (SOS1) constraints with compatible solvers and allow it to reformulate the constraint to avoid the nonconvex bilinear terms.
+
+## Inverse Optmization Model {.smaller}
+
+$$
+\mathbf{x}^\ast (\mathbf{p}_{act}, \mathbf{c}) \in \mathbb{R}^{6T} = \arg\min_{\mathbf{p, \lambda, x}} || \mathbf{p} - \mathbf{p}_{act} ||^2_2
+$$ {#eq-general-io}
+
+*subject to*
+
+$$
+\text{(Primal Feasibility) } \mathbf{G} \mathbf{p} \le \mathbf{x}
+$$
+
+$$
+\text{(Slack Variable) } s_i = (\mathbf{x} - \mathbf{G} \mathbf{p})_i, \forall i \in 1 \ldots 6T
+$$
+
+$$
+\text{(Dual Feasibility) } \lambda_i \ge 0, \forall i \in 1 \ldots 6T
+$$
+
+$$
+\text{(Stationarity) } \mathbf{G}^\top \mathbf{\lambda} - \mathbf{c} = 0
+$$
+
+$$
+\text{(Complementary Slackness ) } s_i \perp \lambda_i \ge 0, \forall i \in 1 \ldots 6T
+$$
+
+# Progressive Hedging {.smaller}
+
+However, the virtual battery parameters need to change from day to day because the feasible region of individual DERs such as TCLs (or BS which are used to run household HVAC, for example) are significantly altered by the weather. While we can use IO to infer the parameters for a given day ex post facto, this provides no utility because the DERA needs to submit the virtual battery model to the SO before the planning problems are solved rather than after the events have past. What we really want is a single set of parameters which will closely match observed price-responsive behavior over a number of days.
+
+Tractability issues arise again because including multiple days grows the SOS1 constraints by $6T$ per additional day that is included. We employ progressive hedging to overcome this by solving for one day at a time (which is tractable), but penalizing for deviation from the average parameters over a select set of days. After solving for parameters for each day in the set, the consensus is updated and the process is iterated until one some termination criteria is met (the days have converged on a consensus, the consensus change has effectively stopped changing from one iteration to the next, or a maximum number of iterations is reached). This problem is still computationally intensive, but is highly parallelizable as each day in the iteration can be solved independently.
+
+# Optimal Scenario Selection {.smaller}
+
+This brings us to the final question the DERA must answer: for "tomorrow", $D+1$, which set of days from days in $d=1 \ldots D$ should be used to form a consensus using the progressive hedging, inverse optimization method? Currently, we cluster all days based on their temperature profile using K-Means clustering into $K=6$. We then use the methodology outlined above to obtain a consensus parameterization for each cluster, $\overline{x}^{(c)} \in \mathbb{R}^{6T}\ \forall c \in K$. $D+1$ is assigned to cluster $c$ and the consensus for that cluster is submitted to the SO as the parameterization for that day.
+
+$$
+\overline{x}^{(D+1)} = \overline{x}^{(c(D+1))}
+$$ {#eq-d-plus-one-uses-days-clusters-consensus}
+
+# End Goal {.smaller}
+
+While this provides an intuitive and simple to implement method which captures some aspect of the relationship of weather to the feasible region, it might be overly simplistic. We seek a method for the DERA to reduce their risk exposure by better selecting the set of historical days, $\mathcal{H}$ used to obtain a consensus for $D+1$. A better classification system might be obtained with more external features and or a more sophisticated classification system.
+
+We want to explore how we can select the optimal (or improved) $\mathcal{H}$ upon which to base $\overline{x}^{(D+1)}$. We will measure the difference relative to the existing system by the power usage discrepancy for each day.
+
+# Data Sets {.smoller}
+
+One year of hourly weather data for Piscataway, NJ was obtained from "Visual Crossings".
+
+One year of day-ahead (DA) locational marginal pricing (LMP) data for Piscataway, NJ was obtained from the Pennsylvania, Jersey, Maryland (PJM) Regiona Transmission Operator (RTO).
+
+These were combined and passed to a set of DER models to generate a synthetic dataset of aggregated DER price-responsive power usage behavior.
+
+# Status of Current Work {.smaller}
+
+The plots below provide additional context and an indication of the current status of work. @fig-spaghetti shows the aggregated power usage of the DERs over the year of historical data. There is essentially no readily apparent pattern to the price-responsive behavior, although @fig-lmp-vs-time shows a clear relationship between temperature, time-of-day, and price.
+
+### {.unnumbered}
+
+![Aggregated Power Usage vs. Time-of-Day with Temperature Context](plots/power_vs_time_temp.svg){#fig-spaghetti}
+
+### {.unnumbered}
+
+![Locational Marginal Price vs. Time-of-Day with Temperature Context](plots/lmp_vs_time_temp.svg){#fig-lmp-vs-time}
+
+### {.unnumbered}
+
+We know that the aggregated response will be impacted by temperature specifically because the portfolio includes Thermostatically Controlled Loads (TCLs) in addition to Electric Vehicles (EVs) and Battery Storage (BS). With this knowledge, we decide to cluster the historical data based on temperature profiles. We use K-Means and select $K=10$ based on observations from @fig-elbow and @fig-cluster-assignments below.
+
+### {.unnumbered}
+
+![We see a critical "elbow" in the total distance of the cluster assignments at about K=10.](plots/elbow.svg){#fig-elbow}
+
+### {.unnumbered}
+
+![This shows how a few cluster have too few data assigned to them once it is beyond about K=10.](plots/cluster_bar.svg){#fig-cluster-assignments}
+
+### {.unnumbered}
+
+@fig-cluster-centers shows the data plotted by cluster with the cluster centers.
+
+![Data assigned ot each cluster and cluster centers](plots/clustere_data_and_centers.svg){#fig-cluster-centers}
+
+### {.unnumbered}
+
+Finally @fig-clustered-power-usage shows that we have extracted some kind of relationship by examining the clustered power usage profiles with the temperature context.
+
+![Aggregated power usage by cluster with temperature context](plots/clustered_p_vs_temp.svg){#fig-clustered-power-usage}
+
+## Recap {.smaller}
+
+So this is the point at which we employ the progressive hedging scheme to obtain a consenus parameterization for each DER. To recap, this is where I want to investigate an improved classification scheme which will yield better parameterizations. While I have additional weather data such as humidity, wind, etc, I know this will not be useful because the DER usage is synthetic and only uses temperature and price as input signals. I want to identify two alternative classification methods and consider opportunities for feature engineering. Specifically, I believe that changes in temperature could be as important as the actual temperature. This could be examined in many different ways. Ultimately any alternative classification scheme will have to improve the objective from @eq-general-io and still be explainable.
