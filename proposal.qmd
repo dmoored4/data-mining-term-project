@@ -1,0 +1,137 @@
+---
+title: Term Project Proposal
+subtitle: 16:540:94:01, Adv Topics in I.E. - Data Mining I
+
+date: 2025-11-15
+date-format: iso
+lang: en-US
+
+bibliography: references.bib
+
+author:
+  - name: Daniel Moore
+    email: daniel.l.moore@rutgers.edu
+    roles: writing, research
+    corresponding: true
+    affiliation: 
+      - name: Rutgers University
+        city: Piscataway
+        state: NJ
+        url: www.rutgers.edu
+
+abstract: We seek an improved method for subsetting historical observations of weather and locational marginal prices to develop consensus parameterizations of virtual battery models which well-approximate the aggregated price-responsive behavior of a portfolio of Distributed Energy Resources. This will allow the price-responsive flexibility to be incorporated into System Operators' planning problems such as Unit-Commitment (UC) and Grid Expansion Planning optimization problems. Incroporating them will shift peak-loads, reduce reliance on peaker-plants and their associated undesirable externalities. 
+
+execute:
+    message: false
+    echo: true
+    output: false
+    freeze: auto
+
+engine: julia
+---
+
+# Motivation
+
+Distributed Energy Resources (DERs) deployment is growing in proliferation and capacity at both the grid-scale and consumer-level systems. While System Operators (SOs) can incorporate grid-scale assets in various planning models, consumer-level resources such as Electric Vehicles (EV), Photovoltaic Solar Panels (PV), Battery Storage (BS), and Thermostatically Controlled Loads (TCLs) are too numerous and individually insignificant for the SO to consider. This is a market shortfall beause these assets have price-sensitive flexibility that could shift loads in ways that would reduce the system cost and other externalities related to public health and climate change if they could participate in the wholesale electricty market. To overcome this, DER Aggregators (DERAs) can represent the aggregate feasbile dispatch region of a portfolio with a virtual battery model as shown in @sec-app-vb.
+
+The problem for the DERA is how to decide the parameters called hereon as $\mathbf{x}$ so that the price-responsive Virtual Battery well approximates the actual aggregated power usage when provided the same price signals. We achieve this with Data Driven Inverse Optimization and Progressive Hedging to achieve a consensus $\mathbf{\overline{x}}$ which generalizes over a subset of historical observations. The quesion that remains to the DERA is how should they select that subset so that discrepancy in the future is minimized.
+
+Currently, we opt for a simplistic but explainable approach where we use K-Means clustering to group the historical observations based on their temperature time-series. We achieve a $\mathbf{\overline{x}}^{(c)}$ for cluster $c$ in $K$ clusters. We hypothesize that more sophisticated methods combined with feature engineering could result in subsets which achieve better consensus parameterizations.
+
+# Dataset Information
+
+-   Weather: houlry weather data for Piscataway, NJ from October 2024 to October 2025 obtained from Visual Crossings @VisualCrossing_WeatherData. Features include temperature, humidity, solar irradiation, wind, visibility and more.
+
+-   Locational Marginal Prices (LMP): hourly LMP for Piscataway, NJ from October 2024 to October 2025 from @PJM_DataExplorer. Data also include prices from the real-time market.
+
+The weather and price data are combined for visualization in @fig-lmp-vs-time.
+
+![Locational Marginal Price vs. Time-of-Day with Temperature Context](plots/lmp_vs_time_temp.svg){#fig-lmp-vs-time}
+
+-   DER Power Usage. This is a synthetic dataset created by passing the temperature and LMP for a given day to a set of DERs with estimated feasible dispatch regions. In practice the feasible dispatch regions and underlying models of each DER are practically unknowable. But the observed power usage would be readily available from either Advanced Meter Infrastrucure (AMI) or could be manually collected from records. This power usage is shown in @fig-spaghetti.
+
+![Aggregated Power Usage vs. Time-of-Day with Temperature Context](plots/power_vs_time_temp.svg){#fig-spaghetti}
+
+# Data Mining Task Description
+
+Our task is to classify the historical observed data into (not necessarily exclusive) subsets which will be used to generate a consensus parameterization through the Inverse Optimization with Progressive Hedging algorithm. Methods to explore include: . Note that we do not want to consider additional input dimensions (such as humidity or solar irradiance) for two reasons. First, we know that the synthetic dataset depended only on temperature. Secondly, we want to maintain the simple and explainable structure. We will explore feature engineering because we know sharp changes in temperature, for example, will have a significant impact on how TCLs use power, and therefore how the aggregated set of DERs which includes those TCLs will use power.
+
+# Appendices {.appendix}
+
+## Appendix: Virtual Battery Model {#sec-app-vb .appendix}
+
+$$
+\mathbf{p^\ast} (\mathbf{c}) \in \mathbb{R}^T = \arg\min_{\mathbf{p}} (\mathbf{c}^\top \mathbf{p})
+$$ {#eq-virtual-battery-basic}
+
+*subject to*
+
+$$
+\text{(Power Limitation) } \underline{p}_t \le p_t \le \overline{p}_t, \forall t \in \mathcal{T}
+$$
+
+$$
+\text{(State of Charge) } e_t = e_{t-1} + p_t, \forall t \in \mathcal{T} \setminus 1
+$$
+
+$$
+\text{(SoC Limits) } \underline{e}_t \le e_t \le \overline{e}_t, \forall t \in \mathcal{T}
+$$
+
+$$
+\text{(Ramping) } r_t = p_t - p_{t-1}, \forall t \in \mathcal{T} \setminus 1
+$$
+
+$$
+\text{(Ramping Limits) } \underline{r}_t \le r_t \le \overline{r}_t, \forall t \in \mathcal{T}
+$$
+
+where $\mathbf{c}$ is the cost vector and $\mathbf{p}$ is the power usage vector.
+
+Because all the constraints are linear and depend only on $p$, they can be conveniently represented them as:
+
+$$
+\mathbf{G} \mathbf{p} \le \mathbf{x}
+$$
+
+Where $\mathbf{G}$ holds the time-coupled structure of the battery and $\mathbf{x}$ holds the $rhs$ consisting of $\overline{\mathbf{p}}, \underline{\mathbf{p}}, \overline{\mathbf{e}}, \underline{\mathbf{e}}, \overline{\mathbf{r}}, \underline{\mathbf{r}}$.
+
+## Appendix: Inverse Optimization {#sec-app-io .appendix}
+
+Inverse Optimization imputes parameters of an optimization problem by finding the parameters of a (known or assumed) model which would result in the observed decisions being optimal. The Forward Optimization problem (FO) is @eq-virtual-battery-basic. The Inverse Optimization problem (IO) is given by @eq-general-io. This constrains $\bf{p}$ so that it must be an optimal solution to @eq-virtual-battery-basic and we are imputing the parameters of that problem, $\bf{x}$.
+
+$$
+\mathbf{x}^\ast (\mathbf{p}_{act}, \mathbf{c}) \in \mathbb{R}^{6T} = \arg\min_{\mathbf{p, \lambda, x}} || \mathbf{p} - \mathbf{p}_{act} ||^2_2
+$$ {#eq-general-io}
+
+*subject to*
+
+$$
+\text{(Primal Feasibility) } \mathbf{G} \mathbf{p} \le \mathbf{x}
+$$
+
+$$
+\text{(Slack) } s_i = (\mathbf{x} - \mathbf{G} \mathbf{p})_i, \forall i \in 1 \ldots 6T
+$$
+
+$$
+\text{(Dual Feasibility) } \lambda_i \ge 0, \forall i \in 1 \ldots 6T
+$$
+
+$$
+\text{(Stationarity) } \mathbf{G}^\top \mathbf{\lambda} - \mathbf{c} = 0
+$$
+
+$$
+\text{(Comp. Slackness ) } s_i \perp \lambda_i \ge 0, \forall i \in 1 \ldots 6T
+$$
+
+## Appendix: Progressive Hedging Algorithm {#sec-app-ph .appendix}
+
+The IO is modified so that the objective function is penalized for deviations of $\bf{x}$ from the current consensus, $\bf{\overline{x}}$ as shown in @eq-ph-io with the same constraints from @eq-general-io.
+
+$$
+\mathbf{x}^\ast (\mathbf{p}_{act}, \mathbf{c}, \mathbf{\overline{x}}) \in \mathbb{R}^{6T} = \arg\min_{\mathbf{p, \lambda, x}} || \mathbf{p} - \mathbf{p}_{act} ||^2_2 + \mathbf{\gamma}^\top \mathbf{x} - \frac{\rho}{2} || \mathbf{x} - \mathbf{\overline{x}} ||^2_2
+$$ {#eq-ph-io}
+
+This problem is solved iteratively for each scenario in the subset until the consensus has converged or some other termination criteria has been met.
