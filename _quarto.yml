@@ -2,30 +2,21 @@ project:
   type: manuscript
 
 manuscript:
-  article: index.qmd
+  article: proposal.qmd
 
 format:
-  html: default
-  
+  html:
+    number-sections: true
+
   revealjs:
-    theme: solarized
+    theme: default
+    output-file: slides.html
     transition: fade
     slide-number: true
-    output-file: slides.html
+    slide-level: 3
     footer: "[Back to Page](https://dmoored4.github.io/data-mining-term-project/)"
+    logo: assets/R_sunj.svg
 
   typst:
-    toc: true
-    section-numbering: 1.1.a
-    columns: 2
-
-
-
-execute:
-    message: false
-    echo: true
-    output: false
-    freeze: auto
-
-engine: julia
-
+    number-sections: true
+    logo: assets/R_sunj.svg
