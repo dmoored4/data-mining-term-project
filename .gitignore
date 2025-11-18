@@ -4,3 +4,5 @@ _manuscript/
 site_libs/
 _freeze/
 .DS_Store
+ter_project_files/
+Manifest.toml
