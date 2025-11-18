@@ -2,7 +2,7 @@ project:
   type: manuscript
 
 manuscript:
-  article: proposal.qmd
+  article: term_project.qmd
 
 format:
   html:
