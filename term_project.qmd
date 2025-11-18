@@ -1,0 +1,192 @@
+---
+title: Scenario Selection Optimization
+subtitle: 16:540:94:01, Adv Topics in I.E. - Data Mining I
+
+date: 2025-12-09
+date-format: iso
+lang: en-US
+
+bibliography: references.bib
+
+author:
+  - name: Daniel Moore
+    email: daniel.l.moore@rutgers.edu
+    roles: writing, research
+    corresponding: true
+    affiliation: 
+      - name: Rutgers University
+        city: Piscataway
+        state: NJ
+        url: www.rutgers.edu
+
+abstract: We seek an improved method for subsetting historical observations of weather and locational marginal prices to develop consensus parameterizations of virtual battery models which well-approximate the aggregated price-responsive behavior of a portfolio of Distributed Energy Resources. This will allow the price-responsive flexibility to be incorporated into System Operators' planning problems such as Unit-Commitment (UC) and Grid Expansion Planning optimization problems. Incorporating them will shift peak-loads, reduce reliance on peaker-plants and their associated undesirable externalities. 
+
+execute:
+    message: false
+    echo: false
+    output: false
+    freeze: auto
+
+engine: julia
+---
+
+# Background
+
+## Motivation
+
+## Current Status
+
+## Contribution
+
+# Methodology
+
+1. Cluster historic days on K-Means
+2. Use SVDD on observed power usage
+3. Achieve consensus $\overline{x}$ for teh support vectors identified by SVDD
+4. Compare performance (consisting of computation time and accuracy)
+- Performance to selecting $x$ for a a day which has the minimum distance from forecasted day
+- Performance to random sampling
+- Performance to entire dataset
+
+## Data Sources
+
+## Clustering Methods
+
+##
+
+We use SVDD @SVDD
+
+# Results
+
+# Conlcusion
+
+```{julia}
+#| label: loading-packages
+
+using StatsKit, LinearAlgebra
+using Optimization
+using CairoMakie, AlgebraOfGraphics
+AoG = AlgebraOfGraphics
+CairoMakie.activate!(type = "svg")
+set_theme!(theme_latexfonts())
+```
+
+```{julia}
+#| label: tbl-data-sample
+#| tbl-cap: Available Data
+#| output: true
+
+df = CSV.read("historical_data.csv", DataFrame)
+
+select!(df, [:cluster, :date, :time, :temp, :total_lmp_da, :p])
+
+df[1:5, :]
+```
+
+
+```{julia}
+
+draw(
+  AoG.data(df) *
+  mapping(:time, :temp, group=:date, color=:date=>nonnumeric) *
+  visual(Lines)
+)
+```
+
+# Introduction
+
+DERS mattered as evidence by @fig-p-vs-time.
+
+```{julia}
+#| label: fig-p-vs-time
+#| fig-cap: Aggregated Power Usage vs. Time
+#| output: true
+
+draw(
+  AoG.data(df) *
+  mapping(:time, :p, color=:temp, group=:date) *
+  visual(Lines),
+	scales(Color = (;colormap = :turbo))
+)
+```
+
+```{julia}
+#| label: fig-high-vs-low
+#| fig-cap: "Clustered days Hi vs Low"
+#| output: true
+
+draw(
+  AoG.data(
+    combine(
+      groupby(df, [:cluster, :date]),
+      :total_lmp_da=>maximum=>:max_lmp,
+      :temp=>minimum=>:lo_temp,
+      :temp=>maximum=>:hi_temp
+      )
+  ) *
+  mapping(:lo_temp=>"Daily Low °C", :hi_temp=>"Daily High °C", group=:date, color=:cluster) *
+  visual(Scatter),
+	scales(Color = (;colormap = :turbo))
+)
+```
+
+
+```{julia}
+#| label: fig-low-vs-high
+#| fig-cap: "Clustered days Hi vs Low"
+#| output: true
+
+# draw(
+#   AoG.data(
+#     combine(
+#       groupby(df, [:cluster, :date]),
+#       :total_lmp_da=>median=>:med_lmp,
+#       :temp=>minimum=>:lo_temp,
+#       :temp=>maximum=>:hi_temp
+#       )
+#   ) *
+#   mapping(:hi_temp=>"Daily High °C", :lo_temp=>"Daily Low °C", group=:date, color=:med_lmp) *
+#   visual(Scatter),
+# 	scales(Color = (;colormap = :turbo))
+# )
+```
+
+```{julia}
+#| label: fig-high-vs-low-2
+#| fig-cap: "Clustered days Hi vs Low"
+#| output: true
+
+# draw(
+#   AoG.data(
+#     combine(
+#       groupby(df, [:cluster, :date]),
+#       :total_lmp_da=>maximum=>:max_lmp,
+#       :temp=>minimum=>:lo_temp,
+#       :temp=>maximum=>:hi_temp,
+#       :temp=> maximum(x -> abs(diff(x))) => :max_change
+#       )
+#   ) *
+#   mapping(:lo_temp=>"Daily Low °C", :max_change=>"Daily High °C", group=:date, color=:cluster) *
+#   visual(Scatter),
+# 	scales(Color = (;colormap = :turbo))
+# )
+```
+
+```{julia}
+gdf = groupby(df, :date)
+
+df.temp_diff .= Missing
+
+```
+
+## Motivation
+
+## Background
+
+## Literature Review
+
+## Contribution
+
+# Methdology
+
+# Results
