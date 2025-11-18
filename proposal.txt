@@ -19,7 +19,7 @@ author:
         state: NJ
         url: www.rutgers.edu
 
-abstract: We seek an improved method for subsetting historical observations of weather and locational marginal prices to develop consensus parameterizations of virtual battery models which well-approximate the aggregated price-responsive behavior of a portfolio of Distributed Energy Resources. This will allow the price-responsive flexibility to be incorporated into System Operators' planning problems such as Unit-Commitment (UC) and Grid Expansion Planning optimization problems. Incroporating them will shift peak-loads, reduce reliance on peaker-plants and their associated undesirable externalities. 
+abstract: We seek an improved method for subsetting historical observations of weather and locational marginal prices to develop consensus parameterizations of virtual battery models which well-approximate the aggregated price-responsive behavior of a portfolio of Distributed Energy Resources. This will allow the price-responsive flexibility to be incorporated into System Operators' planning problems such as Unit-Commitment (UC) and Grid Expansion Planning optimization problems. Incorporating them will shift peak-loads, reduce reliance on peaker-plants and their associated undesirable externalities. 
 
 execute:
     message: false
@@ -34,7 +34,7 @@ engine: julia
 
 Distributed Energy Resources (DERs) deployment is growing in proliferation and capacity at both the grid-scale and consumer-level systems. While System Operators (SOs) can incorporate grid-scale assets in various planning models, consumer-level resources such as Electric Vehicles (EV), Photovoltaic Solar Panels (PV), Battery Storage (BS), and Thermostatically Controlled Loads (TCLs) are too numerous and individually insignificant for the SO to consider. This is a market shortfall because these assets have price-sensitive flexibility that could shift loads in ways that would reduce the system cost and other externalities related to public health and climate change if they could participate in the wholesale electricity market. To overcome this, DER Aggregators (DERAs) can represent the aggregate feasible dispatch region of a portfolio with a virtual battery model as shown in @sec-app-vb.
 
-The problem for the DERA is how to decide the parameters called hereon as $\mathbf{x}$ so that the price-responsive Virtual Battery well approximates the actual aggregated power usage when provided the same price signals. We achieve this with Data Driven Inverse Optimization and Progressive Hedging to achieve a consensus $\mathbf{\overline{x}}$ which generalizes over a subset of historical observations. The question that remains to the DERA is how should they select that subset so that discrepancy in the future is minimized.
+The problem for the DERA is how to decide the parameters called hereon as $\mathbf{x}$ so that the price-responsive Virtual Battery well approximates the actual aggregated power usage when provided the same price signals. We achieve this with Data Driven Inverse Optimization and Progressive Hedging to achieve a consensus $\mathbf{\overline{x}}$ which generalizes over a subset of historical observations shown in @eq-general-io and @eq-ph-io, respectively. The question that remains to the DERA is how should they select that subset so that discrepancy in the future is minimized.
 
 Currently, we opt for a simplistic but explainable approach where we use K-Means clustering to group the historical observations based on their temperature time-series. We achieve a $\mathbf{\overline{x}}^{(c)}$ for cluster $c$ in $K$ clusters. We hypothesize that more sophisticated methods combined with feature engineering could result in subsets which achieve better consensus parameterizations.
 
@@ -44,17 +44,24 @@ Currently, we opt for a simplistic but explainable approach where we use K-Means
 
 -   Locational Marginal Prices (LMP): hourly LMP for Piscataway, NJ from October 2024 to October 2025 from @PJM_DataExplorer. Data also include prices from the real-time market.
 
-The weather and price data are combined for visualization in @fig-lmp-vs-time.
+-   DER Power Usage. This is a synthetic dataset created by passing the temperature and LMP for a given day to a set of DERs with estimated feasible dispatch regions. In practice the feasible dispatch regions and underlying models of each DER are practically unknowable. But the observed power usage would be readily available from either Advanced Meter Infrastrucure (AMI) or could be manually collected from records.
+
+The interplay of temperature, price, and power usage among historical obsevations is provided in @fig-lmp-temp-power.
+
+::: {#fig-lmp-temp-power layout-ncol=2}
 
 ![Locational Marginal Price vs. Time-of-Day with Temperature Context](plots/lmp_vs_time_temp.svg){#fig-lmp-vs-time}
 
--   DER Power Usage. This is a synthetic dataset created by passing the temperature and LMP for a given day to a set of DERs with estimated feasible dispatch regions. In practice the feasible dispatch regions and underlying models of each DER are practically unknowable. But the observed power usage would be readily available from either Advanced Meter Infrastrucure (AMI) or could be manually collected from records. This power usage is shown in @fig-spaghetti.
-
 ![Aggregated Power Usage vs. Time-of-Day with Temperature Context](plots/power_vs_time_temp.svg){#fig-spaghetti}
+
+Temperature, LMP, and Power Usage Interconnectedness
+:::
 
 # Data Mining Task Description
 
-Our task is to classify the historical observed data into (not necessarily exclusive) subsets which will be used to generate a consensus parameterization through the Inverse Optimization with Progressive Hedging algorithm. Methods to explore include: . Note that we do not want to consider additional input dimensions (such as humidity or solar irradiance) for two reasons. First, we know that the synthetic dataset depended only on temperature. Secondly, we want to maintain the simple and explainable structure. We will explore feature engineering because we know sharp changes in temperature, for example, will have a significant impact on how TCLs use power, and therefore how the aggregated set of DERs which includes those TCLs will use power.
+Our task is to classify the historical observed data into (not necessarily exclusive) subsets which will be used to generate a consensus parameterization through the Inverse Optimization with Progressive Hedging algorithm. Methods to explore include: K-Means (baseline), Support Vector Classifier, Bayesian Classification, DB-Scan. Dynamic Time Warping (DTW) may be of use, but the author is as of yet unsure if it is applicable or not. Note that we do not want to consider additional input dimensions (such as humidity or solar irradiance) for two reasons. First, we know that the synthetic dataset depended only on temperature. Secondly, we want to maintain the simple and explainable structure. We will explore feature engineering because we know sharp changes in temperature, for example, will have a significant impact on how TCLs use power, and therefore how the aggregated set of DERs which includes those TCLs will use power.
+
+Ultimately, the classifications should result in consenus parameterizations which reduce the discrepancy between the power used by the VB and the aggregated power used by the DERs when provided the same signals.
 
 # Appendices {.appendix}
 
