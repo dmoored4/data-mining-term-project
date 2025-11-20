@@ -30,15 +30,6 @@ execute:
 engine: julia
 ---
 
-# Background
-
-## Motivation
-
-## Current Status
-
-## Contribution
-
-# Methodology
 
 1. Cluster historic days on K-Means
 2. Use SVDD on observed power usage
@@ -48,27 +39,67 @@ engine: julia
 - Performance to random sampling
 - Performance to entire dataset
 
-## Data Sources
-
-## Clustering Methods
-
-##
-
 We use SVDD @SVDD
 
-# Results
+# Background
 
-# Conlcusion
+## Motivation
+
+## Task
+
+## Contribution
+
+# Methodology
+
+## Virtual Battery Parameterization
+
+### Virtual Battery Model
+
+### Invesrse Optimization
+
+## Scenario Selection
+
+### Single Day
+
+From all past data, select the day who's temperature profile most closely matches 
+
+### Random Days
+
+### All Days
+
+### Outliers
+
+#### Support Vector Data
+
+1. Cluster data into $K$ clusters based on temperature profiles
+2. Fit an RBF-SVDD to the power usage profiles of each day in each cluster
+3. Adjust $C$ and $\sigma$ to get the support vector and outlier days to $\approx 15$
+4. Use these interesting days in the IO problem to find the consensus for this cluster
+
+#### Multivariate Normal Outliers
+
+1. Cluster data into $K$ clusters based on temperature profiles
+2. Fit a MVN to the power usage profiles of each day in the cluster
+3. Select the $\approx 15$ least likely days as the "Interesting" ones
+4. Use these interesting days in the IO problem to find the consensus for this cluster
+
+# Implementation
+
+## Bayesian Classification
+
+## Support Vector Data Description
 
 ```{julia}
 #| label: loading-packages
 
 using StatsKit, LinearAlgebra
-using Optimization
+using JuMP, Ipopt
 using CairoMakie, AlgebraOfGraphics
 AoG = AlgebraOfGraphics
 CairoMakie.activate!(type = "svg")
 set_theme!(theme_latexfonts())
+∑ = sum
+solver = Ipopt.Optimizer
 ```
 
 ```{julia}
@@ -76,24 +107,26 @@ set_theme!(theme_latexfonts())
 #| tbl-cap: Available Data
 #| output: true
 
-df = CSV.read("historical_data.csv", DataFrame)
+hist_data = CSV.read("historical_data.csv", DataFrame)
 
-select!(df, [:cluster, :date, :time, :temp, :total_lmp_da, :p])
+select!(hist_data, [:cluster, :date, :time, :temp, :total_lmp_da, :p])
 
-df[1:5, :]
+cdf = groupby(hist_data, :cluster)
+
+gdf = groupby(cdf[(1, )], :date)
 ```
 
 
 ```{julia}
 
 draw(
-  AoG.data(df) *
-  mapping(:time, :temp, group=:date, color=:date=>nonnumeric) *
-  visual(Lines)
+  AoG.data(hist_data) *
+  mapping(:time, :total_lmp_da, group=:date, color=:temp) *
+  visual(Lines),
+	scales(Color = (;colormap = :turbo))
 )
 ```
 
-# Introduction
 
 DERS mattered as evidence by @fig-p-vs-time.
 
@@ -103,7 +136,7 @@ DERS mattered as evidence by @fig-p-vs-time.
 #| output: true
 
 draw(
-  AoG.data(df) *
+  AoG.data(hist_data) *
   mapping(:time, :p, color=:temp, group=:date) *
   visual(Lines),
 	scales(Color = (;colormap = :turbo))
@@ -118,7 +151,7 @@ draw(
 draw(
   AoG.data(
     combine(
-      groupby(df, [:cluster, :date]),
+      groupby(hist_data, [:cluster, :date]),
       :total_lmp_da=>maximum=>:max_lmp,
       :temp=>minimum=>:lo_temp,
       :temp=>maximum=>:hi_temp
@@ -173,20 +206,126 @@ draw(
 ```
 
 ```{julia}
-gdf = groupby(df, :date)
+#| label: RBF-kernel
 
-df.temp_diff .= Missing
+RBF(x_i, x_j; σ=1) = exp(-∑((x_i-x_j).^2) / (2σ^2) )
 
+function SVDD(X, K, ξ_penalty=1, solver=solver)
+
+  N = length(X)
+  T = length(X[1])
+
+  if ξ_penalty ≤ 1/N
+    ξ_penalty = 2/N
+    @warn "C is infeasible, setting to $ξ_penalty"
+  end
+
+  m = JuMP.Model(solver)
+
+  @variables(m, begin
+    C ∈ Parameter(ξ_penalty)
+  end)
+
+  @variables(m, begin
+    α[1:N] ≥ 0
+  end)
+
+  @objective(m, Max, 
+    ∑(α[i]*K[i,i] for i ∈ 1:N) -
+    ∑(α[i]α[j]K[i,j] for i ∈ 1:N, j ∈ 1:N)
+  )
+
+  @constraints(m, begin
+    α .≤ C
+    ∑(α) == 1
+  end)
+
+  return m
+end
 ```
 
-## Motivation
+```{julia}
+X = hcat([df.p for df in gdf]...)
 
-## Background
+t1 = rand(1:24)
+t2 = rand(setdiff(1:24, t1))
 
-## Literature Review
+X = X[[t1,t2], :]
 
-## Contribution
+Z_xfrm = StatsBase.fit(ZScoreTransform, X, dims=2)
 
-# Methdology
+StatsBase.transform!(Z_xfrm, X)
 
-# Results
+X = collect(eachcol(X))
+N = length(X)
+
+D = [norm(x_i-x_j) for x_i in X, x_j in X]
+
+σ = median(D)/3
+
+K = [RBF(x_i, x_j, σ=σ) for x_i in X, x_j in X]
+
+# K = [x_i ⋅ x_j for x_i in X, x_j in X]
+
+C = 3/N
+
+svdd = SVDD(X, K, C)
+
+C = parameter_value(svdd[:C])
+
+optimize!(svdd)
+
+α = value.(svdd[:α])
+
+ϵ = 1e-4
+
+SV = ϵ .< α .< C
+
+# always the same
+Q = α'K*α
+
+# computing for R for all SV then taking mean
+Rs = [√(K[sv, sv] -2∑(α[i]K[i, sv] for i in 1:N) + Q)
+          for sv in findall(SV)]
+
+R = mean(Rs)
+
+d(z) = RBF(z, z, σ=σ) - 2∑(α[i]RBF(z, X[i], σ=σ) for i in 1:N) + Q
+
+# ACCEPT if this distance is LESS THAN OR EQUAL to R^2. SV are ACCEPTED
+f(z) = d(z) ≤ R^2
+
+X_df = DataFrame(hcat(X...)', :auto)
+X_df.d = [d([row[:]...]) for row in eachrow(X_df)]
+X_df.ξ = max.(0, X_df.d .- R^2)
+X_df.IP = α .≤ ϵ
+X_df.Outlier = X_df.ξ .> 0
+X_df.SV = 1 .- (X_df.IP + X_df.Outlier)
+X_df.Interesting = X_df.SV + X_df.Outlier
+
+@info "Fraction of Interesting Points: $(round(mean(X_df.Interesting), digits=2))"
+
+X_df
+
+X_df.Category = categorical([
+    (["IP", "SV", "Outlier"])[
+        argmax( (row.IP, row.SV, row.Outlier) )
+    ]
+    for row in eachrow(X_df)]
+)
+
+fig = draw(
+  AoG.data(X_df) *
+  mapping(:x1, :x2, color=:Category) *
+  visual(Scatter)
+)
+
+ps = -3:0.1:3
+
+hmm = [d([p_i, p_j]) ≤ R^2  for p_i in ps, p_j in ps]
+
+contour!(ps, ps, hmm)
+
+fig
+```
+
